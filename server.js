@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { runRound1, runModerator } = require('./src/orchestrator');
+const { runRound1, runScoring, runModerator } = require('./src/orchestrator');
 
 const app = express();
 app.use(cors());
@@ -23,14 +23,17 @@ app.post('/debate', async (req, res) => {
     console.log('Question:', question);
 
     const round1 = await runRound1(question);
+    const scoring = await runScoring(question, round1);
     const finalAnswer = await runModerator(question, round1);
 
     res.json({
       question,
       agentResponses: round1,
+      scoring: scoring.agentAverages,
       finalAnswer,
       metadata: {
         totalAgents: round1.length,
+        allPassed: scoring.agentAverages.every(a => a.passedThreshold),
         timestamp: new Date().toISOString()
       }
     });
