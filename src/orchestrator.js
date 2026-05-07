@@ -53,7 +53,7 @@ Replace the 0s with your actual scores.`;
       agent.model,
       scoringPrompt,
       agent.systemPrompt,
-      600
+      800
     );
 
     try {
@@ -139,6 +139,81 @@ Replace the 0s with your actual scores.`;
 
   return { allScores, agentAverages };
 }
+async function runRound2(question, round1Results, agentAverages) {
+  console.log('\nRound 2: Flagged agents revising...');
+
+  // Find which agents failed the threshold
+  const failedAgents = agentAverages.filter(a => !a.passedThreshold);
+  const passedAgents = agentAverages.filter(a => a.passedThreshold);
+
+  if (failedAgents.length === 0) {
+    console.log('All agents passed! No revision needed.');
+    return round1Results;
+  }
+
+  console.log(`Flagged agents: ${failedAgents.map(a => a.agentName).join(', ')}`);
+
+  // Build context of all round 1 responses for flagged agents to read
+  const allResponsesText = round1Results
+    .map(r => `[${r.agentName}]: ${r.response}`)
+    .join('\n\n');
+
+  // Only flagged agents revise — passed agents keep their round 1 response
+  const revisionPromises = AGENTS.map(async (agent) => {
+    const isFlagged = failedAgents.find(f => f.agentId === agent.id);
+
+    // If agent passed, just return their round 1 response unchanged
+    if (!isFlagged) {
+      const original = round1Results.find(r => r.agentId === agent.id);
+      console.log(`  ${agent.name} passed — keeping original response`);
+      return { ...original, round: 2, revised: false };
+    }
+
+    // Agent failed — ask it to revise
+    const myRound1 = round1Results.find(r => r.agentId === agent.id);
+    const myScore = agentAverages.find(a => a.agentId === agent.id);
+
+    const revisionPrompt = `You are ${agent.name}. Your previous answer was scored ${myScore.averageScore}/10 by your peers — below the threshold.
+
+QUESTION: ${question}
+
+YOUR PREVIOUS ANSWER:
+${myRound1.response}
+
+WHAT OTHER AGENTS SAID:
+${allResponsesText}
+
+YOUR TASK: Write a revised, improved answer.
+- Address weaknesses in your previous response
+- Consider the other agents' perspectives
+- Keep your unique ${agent.name} role and angle
+- Be concise — 150-200 words max
+- Do not use <think> tags. Just give your answer directly.`;
+
+    console.log(`  ${agent.name} is revising...`);
+
+    const revised = await callModel(
+      agent.model,
+      revisionPrompt,
+      agent.systemPrompt,
+      600
+    );
+
+    return {
+      agentId: agent.id,
+      agentName: agent.name,
+      model: agent.model,
+      response: revised,
+      round: 2,
+      revised: true,
+      previousScore: myScore.averageScore
+    };
+  });
+
+  const round2Results = await Promise.all(revisionPromises);
+  console.log('Round 2 complete.');
+  return round2Results;
+}
 
 async function runModerator(question, allRoundResults) {
   console.log('\nModerator: Synthesising final answer...');
@@ -171,4 +246,4 @@ Now write the final synthesised answer.
   };
 }
 
-module.exports = { runRound1, runScoring, runModerator };
+module.exports = { runRound1, runScoring, runRound2, runModerator };
