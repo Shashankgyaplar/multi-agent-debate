@@ -1,9 +1,16 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
 const { runRound1, runScoring, runRound2, runModerator } = require('./src/orchestrator');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*' }
+});
+
 app.use(cors());
 app.use(express.json());
 
@@ -12,36 +19,51 @@ app.get('/', (req, res) => {
 });
 
 app.post('/debate', async (req, res) => {
-  const { question } = req.body;
+  const { question, socketId } = req.body;
 
   if (!question) {
     return res.status(400).json({ error: 'Question is required' });
   }
 
+  // Send immediate response so frontend doesn't hang
+  res.json({ status: 'Debate started', question });
+
+  const emit = (event, data) => {
+    if (socketId) io.to(socketId).emit(event, data);
+  };
+
   try {
     console.log('\n=== NEW DEBATE ===');
     console.log('Question:', question);
 
-    // Round 1
-    const round1 = await runRound1(question);
+    emit('debate:status', { message: 'Round 1 starting — all agents thinking...' });
 
-    // Scoring
+    const round1 = await runRound1(question, emit);
+
+    emit('debate:round1Complete', { responses: round1 });
+    emit('debate:status', { message: 'Scoring round — agents evaluating each other...' });
+
     const scoring = await runScoring(question, round1);
 
-    // Round 2 — only if someone failed
+    emit('debate:scores', { scores: scoring.agentAverages });
+    emit('debate:status', { message: 'Round 2 — flagged agents revising...' });
+
     const round2 = await runRound2(question, round1, scoring.agentAverages);
 
-    // Re-score after round 2
+    emit('debate:round2Complete', { responses: round2 });
+
     const scoring2 = await runScoring(question, round2);
 
-    // Moderator reads the best round
+    emit('debate:scores2', { scores: scoring2.agentAverages });
+    emit('debate:status', { message: 'Moderator synthesising final answer...' });
+
     const finalAnswer = await runModerator(question, round2);
 
-    res.json({
+    emit('debate:final', {
       question,
-      round1: round1,
+      round1,
       scoring1: scoring.agentAverages,
-      round2: round2,
+      round2,
       scoring2: scoring2.agentAverages,
       finalAnswer,
       metadata: {
@@ -54,12 +76,16 @@ app.post('/debate', async (req, res) => {
 
   } catch (err) {
     console.error('Error:', err.message);
-    res.status(500).json({ error: err.message });
+    emit('debate:error', { error: err.message });
   }
 });
 
+io.on('connection', (socket) => {
+  console.log('Frontend connected:', socket.id);
+  socket.on('disconnect', () => console.log('Frontend disconnected:', socket.id));
+});
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`\nDebate server running on http://localhost:${PORT}`);
-  console.log('Make sure Ollama is running: ollama serve');
 });
