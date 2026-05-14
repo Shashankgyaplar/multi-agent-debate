@@ -7,9 +7,7 @@ const { runRound1, runScoring, runRound2, runModerator } = require('./src/orches
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: '*' }
-});
+const io = new Server(server, { cors: { origin: '*' } });
 
 app.use(cors());
 app.use(express.json());
@@ -25,7 +23,6 @@ app.post('/debate', async (req, res) => {
     return res.status(400).json({ error: 'Question is required' });
   }
 
-  // Send immediate response so frontend doesn't hang
   res.json({ status: 'Debate started', question });
 
   const emit = (event, data) => {
@@ -36,40 +33,53 @@ app.post('/debate', async (req, res) => {
     console.log('\n=== NEW DEBATE ===');
     console.log('Question:', question);
 
-    emit('debate:status', { message: 'Round 1 starting — all agents thinking...' });
+    const MAX_ROUNDS = 4;
 
-    const round1 = await runRound1(question, emit);
+    // Round 1
+    emit('debate:status', { message: 'Round 1 — all agents thinking independently...' });
+    let currentRound = await runRound1(question);
+    emit('debate:round1Complete', { responses: currentRound });
 
-    emit('debate:round1Complete', { responses: round1 });
-    emit('debate:status', { message: 'Scoring round — agents evaluating each other...' });
+    // Score Round 1
+    emit('debate:status', { message: 'Scoring — agents evaluating each other...' });
+    let currentScoring = await runScoring(question, currentRound);
+    emit('debate:scores', { scores: currentScoring.agentAverages });
 
-    const scoring = await runScoring(question, round1);
+    let roundNumber = 1;
+    let allPassed = currentScoring.agentAverages.every(a => a.passedThreshold);
 
-    emit('debate:scores', { scores: scoring.agentAverages });
-    emit('debate:status', { message: 'Round 2 — flagged agents revising...' });
+    console.log(`Round 1 complete. All passed: ${allPassed}`);
 
-    const round2 = await runRound2(question, round1, scoring.agentAverages);
+    // Keep revising until all pass or max rounds hit
+    while (!allPassed && roundNumber < MAX_ROUNDS) {
+      roundNumber++;
+      console.log(`\nStarting Round ${roundNumber}...`);
+      emit('debate:status', { message: `Round ${roundNumber} — flagged agents revising...` });
 
-    emit('debate:round2Complete', { responses: round2 });
+      const revised = await runRound2(question, currentRound, currentScoring.agentAverages);
+      emit('debate:round2Complete', { responses: revised });
 
-    const scoring2 = await runScoring(question, round2);
+      emit('debate:status', { message: `Scoring Round ${roundNumber}...` });
+      const newScoring = await runScoring(question, revised);
+      emit('debate:scores2', { scores: newScoring.agentAverages });
 
-    emit('debate:scores2', { scores: scoring2.agentAverages });
+      currentRound = revised;
+      currentScoring = newScoring;
+      allPassed = newScoring.agentAverages.every(a => a.passedThreshold);
+
+      console.log(`Round ${roundNumber} complete. All passed: ${allPassed}`);
+    }
+
+    // Moderator always runs at the end
     emit('debate:status', { message: 'Moderator synthesising final answer...' });
-
-    const finalAnswer = await runModerator(question, round2);
+    const finalAnswer = await runModerator(question, currentRound);
 
     emit('debate:final', {
       question,
-      round1,
-      scoring1: scoring.agentAverages,
-      round2,
-      scoring2: scoring2.agentAverages,
       finalAnswer,
       metadata: {
-        totalAgents: round1.length,
-        round1AllPassed: scoring.agentAverages.every(a => a.passedThreshold),
-        round2AllPassed: scoring2.agentAverages.every(a => a.passedThreshold),
+        totalRounds: roundNumber,
+        allPassed,
         timestamp: new Date().toISOString()
       }
     });
