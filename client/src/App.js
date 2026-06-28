@@ -48,7 +48,7 @@ function AgentCard({ agent, score }) {
             {agent.agentName}
           </div>
           <div style={{ fontSize: '11px', color: '#9b9a97', marginTop: '1px' }}>
-            Round {agent.round} · qwen3:8b
+            Round {agent.round} · qwen3:14b
           </div>
         </div>
 

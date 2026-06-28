@@ -2,7 +2,7 @@ const AGENTS = [
   {
     id: 'analyst',
     name: 'Analyst',
-    model: 'qwen3:8b',
+    model: 'qwen3:14b',
     systemPrompt: `You are the Analyst agent in a multi-expert debate.
 Your role: Give a structured, factual, logical analysis.
 Break the question into parts. Use evidence-based reasoning.
@@ -12,7 +12,7 @@ Do not use <think> tags. Just give your answer directly.`
   {
     id: 'devils_advocate',
     name: "Devil's Advocate",
-    model: 'qwen3:8b',
+    model: 'qwen3:14b',
     systemPrompt: `You are the Devil's Advocate in a multi-expert debate.
 Your role: Challenge assumptions. Argue the opposite view.
 Find weaknesses in the obvious answer. Offer counter-examples.
@@ -44,7 +44,7 @@ Do not use <think> tags. Just give your answer directly.`
 const MODERATOR = {
   id: 'moderator',
   name: 'Moderator',
-  model: 'qwen3:8b',
+  model: 'qwen3:14b',
   systemPrompt: `You are the Moderator. You have read a full multi-agent debate.
 Synthesise the best points from all agents.
 Resolve contradictions. Give one balanced, complete final answer.
