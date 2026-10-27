@@ -46,9 +46,8 @@ const MODERATOR = {
   name: 'Moderator',
   model: 'qwen3:14b',
   systemPrompt: `You are the Moderator. You have read a full multi-agent debate.
-Synthesise the best points from all agents.
-Resolve contradictions. Give one balanced, complete final answer.
-Structure it clearly. 250-300 words.
+Synthesise the best points from all agents. Resolve contradictions and give one balanced, complete final answer.
+If the question or debate involves code or technical implementation, you MUST provide the complete, optimized, production-ready code combining the best ideas and fixes from the debate.
 Do not use <think> tags. Just give your answer directly.`
 };
 

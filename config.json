@@ -1,0 +1,52 @@
+{
+  "nodes": [
+    {
+      "id": "1",
+      "ip": "10.208.193.142",
+      "port": "11434",
+      "role": "Devil's Advocate",
+      "model": "custom",
+      "customModel": "phi4-mini",
+      "note": "Orchestrator laptop",
+      "isOrchestrator": false,
+      "status": "connected",
+      "responseTime": 9
+    },
+    {
+      "id": "2",
+      "ip": "10.208.193.133",
+      "port": "11434",
+      "role": "Analyst",
+      "model": "custom",
+      "customModel": "phi4-mini",
+      "note": "m5",
+      "isOrchestrator": true,
+      "status": "connected",
+      "responseTime": 82
+    },
+    {
+      "id": "node-1790312870351-2-43zq",
+      "ip": "10.208.193.55",
+      "port": "11434",
+      "role": "Creative Thinker",
+      "model": "phi4-mini",
+      "customModel": "",
+      "note": "pavan",
+      "isOrchestrator": false,
+      "status": "connected",
+      "responseTime": 32
+    },
+    {
+      "id": "node-1790312870967-3-uqub",
+      "ip": "10.208.193.76",
+      "port": "11434",
+      "role": "Ethics Checker",
+      "model": "phi4-mini",
+      "customModel": "",
+      "note": "dishan",
+      "isOrchestrator": false,
+      "status": "connected",
+      "responseTime": 265
+    }
+  ]
+}
